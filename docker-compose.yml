@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: agentic-ecommerce-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentic_ecommerce}
+      POSTGRES_USER: ${POSTGRES_USER:-agentic_ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentic_ecommerce} -d ${POSTGRES_DB:-agentic_ecommerce}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    depends_on:
+      - backend
+    volumes:
+      - ./mcp-server:/app/mcp-server
+
+volumes:
+  postgres-data:
