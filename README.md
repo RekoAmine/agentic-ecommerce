@@ -47,6 +47,15 @@ uv run black --check .
 uv run mypy
 ```
 
+## n8n workflows
+
+Exportable n8n workflow definitions are available in `workflows/n8n/`:
+
+- Daily Amazon research: search, analyse, score, persist, notify.
+- Product supplier research: validated product, supplier search, analyse, score, notify.
+
+See `docs/n8n-workflows.md` for import, export, and environment configuration details.
+
 ## Docker
 
 ```bash
