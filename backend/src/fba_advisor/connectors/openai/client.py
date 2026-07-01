@@ -6,8 +6,8 @@ from typing import Protocol
 from urllib.request import Request, urlopen
 
 from fba_advisor.connectors.openai.exceptions import OpenAIAPIError, OpenAIParsingError
-from fba_advisor.connectors.openai.mapper import map_response
-from fba_advisor.connectors.openai.models import OpenAICredentials, OpenAIResponse
+from fba_advisor.connectors.openai.mapper import map_completion, map_response
+from fba_advisor.connectors.openai.models import OpenAICompletion, OpenAICredentials, OpenAIResponse
 
 
 class OpenAITransport(Protocol):
@@ -61,6 +61,24 @@ class OpenAIClient:
         if not isinstance(payload, dict):
             raise OpenAIParsingError("OpenAI API response must be a JSON object.")
         return map_response(payload, value, self._model)
+
+    def complete(self, instructions: str, value: str) -> OpenAICompletion:
+        """Generate a model response from externalized instructions and user input."""
+        body = json.dumps(
+            {"model": self._model, "instructions": instructions, "input": value}
+        ).encode("utf-8")
+        status, response_body = self._transport.post(
+            f"{self._base_url}/responses", self._headers(), body
+        )
+        if status >= 400:
+            raise OpenAIAPIError(f"OpenAI API returned status {status}.")
+        try:
+            payload = json.loads(response_body.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise OpenAIParsingError("OpenAI API returned invalid JSON.") from exc
+        if not isinstance(payload, dict):
+            raise OpenAIParsingError("OpenAI API response must be a JSON object.")
+        return map_completion(payload, self._model)
 
     def _headers(self) -> dict[str, str]:
         headers = {

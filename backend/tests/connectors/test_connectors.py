@@ -132,3 +132,21 @@ def test_openai_client_posts_embedding_request_and_maps_vector() -> None:
     assert transport.headers["OpenAI-Organization"] == "org_123"
     assert json.loads(transport.body.decode("utf-8"))["input"] == "product title"
     assert response.items[0].vector == [0.1, 2.0, -0.3]
+
+
+def test_openai_client_posts_responses_request_and_maps_text() -> None:
+    transport = _FakePostTransport(200, {"output_text": '{"score": 87}'})
+    client = OpenAIClient(
+        OpenAICredentials(api_key="token"),
+        "https://api.openai.example/v1",
+        "gpt-test",
+        transport,
+    )
+
+    response = client.complete("external prompt", "product data")
+
+    assert transport.url.endswith("/responses")
+    body = json.loads(transport.body.decode("utf-8"))
+    assert body["instructions"] == "external prompt"
+    assert body["input"] == "product data"
+    assert response.text == '{"score": 87}'

@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from fba_advisor.connectors.openai.models import OpenAIResponse
+from fba_advisor.connectors.openai.models import OpenAICompletion, OpenAIResponse
 
 
 class OpenAIConnector(Protocol):
@@ -15,4 +15,8 @@ class OpenAIConnector(Protocol):
 
     def fetch(self, value: str) -> OpenAIResponse:
         """Fetch provider data without applying business decisions."""
+        ...
+
+    def complete(self, instructions: str, value: str) -> OpenAICompletion:
+        """Generate a model response from supplied instructions and input."""
         ...
