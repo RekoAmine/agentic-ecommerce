@@ -1,7 +1,13 @@
-"""Simulated product research service implementation."""
+"""MCP-facing product research adapter.
 
-from decimal import ROUND_HALF_UP, Decimal
+The adapter contains no business rules: it validates MCP schemas, delegates to
+backend application use cases, and maps backend DTOs back to MCP schemas.
+"""
 
+from decimal import Decimal
+from typing import Any, cast
+
+from fba_advisor.application.product_tools import ProductToolUseCases
 from fba_mcp_server.schemas.products import (
     MarginBreakdown,
     ProductAnalysis,
@@ -15,47 +21,39 @@ from fba_mcp_server.schemas.requests import (
 )
 
 
-class SimulatedProductResearchService:
-    """Deterministic fake service used until real provider adapters are connected."""
+class BackendProductResearchService:
+    """Adapter from MCP tool contracts to backend application use cases."""
+
+    def __init__(self, use_cases: ProductToolUseCases) -> None:
+        """Create the adapter with injected backend use cases."""
+        self._use_cases = use_cases
 
     def search_products(self, request: SearchProductsRequest) -> list[ProductSummary]:
-        """Return deterministic simulated products respecting production schemas."""
-        products = [
-            ProductSummary(
-                asin="B0TEST0001",
-                title=f"{request.query.title()} Starter Kit",
-                marketplace=request.marketplace,
-                price=Decimal("29.99"),
-                currency="USD",
-                monthly_sales_estimate=840,
-                review_count=128,
-                rating=4.4,
-                product_url="https://www.amazon.com/dp/B0TEST0001",
-            ),
-            ProductSummary(
-                asin="B0TEST0002",
-                title=f"Premium {request.query.title()} Bundle",
-                marketplace=request.marketplace,
-                price=Decimal("44.90"),
-                currency="USD",
-                monthly_sales_estimate=520,
-                review_count=76,
-                rating=4.6,
-                product_url="https://www.amazon.com/dp/B0TEST0002",
-            ),
-        ]
-        return products[: request.limit]
+        """Delegate product search to backend use cases."""
+        products = self._use_cases.search_products(request.query, request.limit)
+        summaries: list[ProductSummary] = []
+        for product in products:
+            raw = product.attributes.get("raw", {})
+            raw_data = raw if isinstance(raw, dict) else {}
+            summaries.append(
+                ProductSummary(
+                    asin=product.identifier,
+                    title=product.title,
+                    marketplace=request.marketplace,
+                    price=Decimal(str(product.price or 0)).quantize(Decimal("0.01")),
+                    currency=product.currency or "USD",
+                    monthly_sales_estimate=int(raw_data.get("monthly_sales_estimate", 0)),
+                    review_count=int(raw_data.get("review_count", 0)),
+                    rating=float(raw_data.get("rating", 0)),
+                    product_url=cast(Any, f"https://www.amazon.com/dp/{product.identifier}"),
+                )
+            )
+        return summaries
 
     def analyse_product(self, request: AnalyseProductRequest) -> ProductAnalysis:
-        """Return a simulated product analysis."""
-        return ProductAnalysis(
-            asin=request.asin,
-            demand_level="medium-high",
-            competition_level="medium",
-            risk_level="controlled",
-            opportunities=("Bundle differentiation", "Keyword long-tail expansion"),
-            warnings=("Validate supplier lead times", "Confirm FBA fee category"),
-        )
+        """Delegate product analysis to backend use cases."""
+        data = self._use_cases.analyse_product(request.asin, request.marketplace.value)
+        return ProductAnalysis(**cast(dict[str, Any], data))
 
     def calculate_margin(
         self,
@@ -64,33 +62,19 @@ class SimulatedProductResearchService:
         amazon_fees: Decimal,
         fulfillment_cost: Decimal,
     ) -> MarginBreakdown:
-        """Calculate a deterministic margin breakdown from validated inputs."""
-        net_profit = sale_price - landed_cost - amazon_fees - fulfillment_cost
-        margin_percent = (net_profit / sale_price * Decimal("100")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        """Delegate margin calculation to backend use cases."""
         return MarginBreakdown(
-            sale_price=sale_price,
-            landed_cost=landed_cost,
-            amazon_fees=amazon_fees,
-            fulfillment_cost=fulfillment_cost,
-            net_profit=net_profit.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-            margin_percent=margin_percent,
+            **self._use_cases.calculate_margin(
+                sale_price, landed_cost, amazon_fees, fulfillment_cost
+            )
         )
 
     def score_product(self, request: ScoreProductRequest) -> ProductScore:
-        """Return a simulated product score based on simple deterministic rules."""
-        demand_points = min(request.monthly_sales_estimate // 20, 40)
-        review_penalty = min(request.review_count // 50, 20)
-        margin_points = max(min(int(request.margin_percent), 40), 0)
-        score = max(min(demand_points + margin_points - review_penalty + 20, 100), 1)
-        recommendation = "investigate" if score >= 70 else "watchlist"
-        return ProductScore(
-            asin=request.asin,
-            score=score,
-            recommendation=recommendation,
-            rationale=(
-                "Demand, competition, and margin were scored with simulated heuristics.",
-                "Connect real marketplace and fee providers before production decisions.",
-            ),
+        """Delegate product scoring to backend use cases."""
+        score_data = self._use_cases.score_product(
+            request.asin,
+            request.monthly_sales_estimate,
+            request.review_count,
+            request.margin_percent,
         )
+        return ProductScore(**cast(dict[str, Any], score_data))

@@ -118,3 +118,25 @@ def test_review_service_uses_injected_repository() -> None:
     assert review.reviewer == "alice"
     assert review.notes == "Looks good"
     assert service.list_for_product("B001") == [review]
+
+
+def test_product_tool_use_cases_orchestrate_backend_services() -> None:
+    from decimal import Decimal
+
+    from fba_advisor.application.product_tools import ProductToolUseCases
+
+    use_cases = ProductToolUseCases(
+        products=ProductResearchService(_Catalog(), _Analytics()),
+        margins=MarginService(),
+        scores=ScoreService(),
+    )
+
+    products = use_cases.search_products(" coffee press ", 1)
+    margin = use_cases.calculate_margin(
+        Decimal("30.00"), Decimal("9.00"), Decimal("4.50"), Decimal("5.50")
+    )
+    score = use_cases.score_product("B0TEST0001", 800, 100, Decimal("30.00"))
+
+    assert products[0].identifier == "B001"
+    assert margin["net_profit"] == Decimal("11.00")
+    assert score["recommendation"] == "investigate"
