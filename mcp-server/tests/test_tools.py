@@ -17,7 +17,7 @@ def test_server_can_be_created() -> None:
 def test_search_products_returns_schema_valid_simulated_data() -> None:
     response = search_products("garlic press", limit=1)
 
-    assert response["simulated"] is True
+    assert response["simulated"] is False
     assert response["data"][0]["asin"] == "B0TEST0001"
 
 

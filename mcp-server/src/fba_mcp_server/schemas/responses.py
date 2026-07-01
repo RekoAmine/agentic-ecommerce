@@ -9,5 +9,5 @@ class ToolResponse[DataT](BaseModel):
     model_config = ConfigDict(frozen=True)
 
     data: DataT
-    simulated: bool = True
-    message: str = Field(default="Simulated response generated successfully.")
+    simulated: bool = False
+    message: str = Field(default="Response generated successfully.")
