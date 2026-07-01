@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fba_advisor.domain.models import (
     MarginInput,
     Product,
@@ -140,3 +142,45 @@ def test_product_tool_use_cases_orchestrate_backend_services() -> None:
     assert products[0].identifier == "B001"
     assert margin["net_profit"] == Decimal("11.00")
     assert score["recommendation"] == "investigate"
+
+
+def test_openai_service_loads_versioned_prompts_and_routes_tasks(tmp_path: Path) -> None:
+    from fba_advisor.connectors.openai.models import OpenAICompletion, OpenAIResponse
+    from fba_advisor.services.openai import OpenAIService, PromptRepository
+
+    prompt_names = [
+        "competition_analysis",
+        "summary",
+        "review_analysis",
+        "brandability",
+        "differentiation",
+        "ai_scoring",
+    ]
+    for prompt_name in prompt_names:
+        (tmp_path / f"{prompt_name}.v1.md").write_text(f"prompt:{prompt_name}", encoding="utf-8")
+
+    class _Connector:
+        provider_name = "openai"
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def fetch(self, value: str) -> OpenAIResponse:
+            raise AssertionError(
+                "OpenAIService must not use embedding fetch for intelligence tasks."
+            )
+
+        def complete(self, instructions: str, value: str) -> OpenAICompletion:
+            self.calls.append((instructions, value))
+            return OpenAICompletion(text=instructions, model="test")
+
+    connector = _Connector()
+    service = OpenAIService(connector, PromptRepository(tmp_path))
+
+    assert service.analyse_concurrence(" data ").text == "prompt:competition_analysis"
+    assert service.resume(" data ").text == "prompt:summary"
+    assert service.analyse_avis(" data ").text == "prompt:review_analysis"
+    assert service.brandabilite(" data ").text == "prompt:brandability"
+    assert service.differenciation(" data ").text == "prompt:differentiation"
+    assert service.scoring_ia(" data ").text == "prompt:ai_scoring"
+    assert connector.calls == [(f"prompt:{prompt_name}", "data") for prompt_name in prompt_names]

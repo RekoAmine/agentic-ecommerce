@@ -22,6 +22,16 @@ class OpenAIEmbedding(BaseModel):
 
 
 class OpenAIResponse(BaseModel):
-    """Parsed OpenAI response."""
+    """Parsed OpenAI embeddings response."""
 
     items: list[OpenAIEmbedding]
+
+
+class OpenAICompletion(BaseModel):
+    """Parsed OpenAI text response."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str
+    model: str
+    raw: dict[str, object] = Field(default_factory=dict)
