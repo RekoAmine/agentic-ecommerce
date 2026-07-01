@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from fba_advisor.domain.models import ProductScore, ProductScoreInput
+from fba_advisor.ports.repositories import ScoreRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,11 +20,18 @@ class ScoreWeights:
 class ScoreService:
     """Score product opportunities from normalized business inputs."""
 
-    def __init__(self, weights: ScoreWeights | None = None) -> None:
-        """Inject scoring policy to keep the service configurable and testable."""
+    def __init__(
+        self,
+        weights: ScoreWeights | None = None,
+        repository: ScoreRepository | None = None,
+    ) -> None:
+        """Inject scoring policy and persistence as interfaces."""
         self._weights = weights or ScoreWeights()
+        self._repository = repository
 
-    def calculate(self, inputs: ProductScoreInput) -> ProductScore:
+    def calculate(
+        self, inputs: ProductScoreInput, product_identifier: str | None = None
+    ) -> ProductScore:
         """Return a normalized score between 0 and 100."""
         demand = self._normalize(inputs.demand_score)
         competition = 1 - self._normalize(inputs.competition_score)
@@ -49,7 +57,10 @@ class ScoreService:
             + sentiment * weights.sentiment
         ) / total_weight
         value = round(weighted * 100, 2)
-        return ProductScore(value=value, rationale=self._rationale(value))
+        score = ProductScore(value=value, rationale=self._rationale(value))
+        if self._repository is not None and product_identifier is not None:
+            return self._repository.save(product_identifier, score, inputs)
+        return score
 
     def _normalize(self, value: float) -> float:
         return min(max(value, 0.0), 1.0)
