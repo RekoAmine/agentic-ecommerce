@@ -75,11 +75,34 @@ class ProductScoreInput:
 
 
 @dataclass(frozen=True, slots=True)
+class ScoringSubScores:
+    """Detailed opportunity sub-scores on a 0-100 scale."""
+
+    concurrence: float
+    marge: float
+    brandabilite: float
+    differenciation: float
+    tendance: float
+    saisonnalite: float
+
+
+@dataclass(frozen=True, slots=True)
+class ProductScoringInput:
+    """Rich inputs used by the configurable scoring engine."""
+
+    product: Product
+    keepa_history: dict[str, object] = field(default_factory=dict)
+    ai_analysis: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class ProductScore:
-    """Computed score with a concise rationale."""
+    """Computed score with rationale, sub-scores, and explanation."""
 
     value: float
     rationale: str
+    sub_scores: ScoringSubScores | None = None
+    explanation: str = ""
 
 
 @dataclass(frozen=True, slots=True)
