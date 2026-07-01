@@ -1,0 +1,237 @@
+{
+  "name": "Agentic Ecommerce - Recherche Amazon quotidienne",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b8436254-5360-4e27-8e1a-f770a5f47d1b",
+      "name": "Workflow quotidien",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "query",
+              "name": "query",
+              "type": "string",
+              "value": "={{ $env.AMAZON_DAILY_QUERY || 'amazon fba product opportunities' }}"
+            },
+            {
+              "id": "marketplace",
+              "name": "marketplace",
+              "type": "string",
+              "value": "={{ $env.AMAZON_MARKETPLACE || 'amazon_us' }}"
+            },
+            {
+              "id": "limit",
+              "name": "limit",
+              "type": "number",
+              "value": 10
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "91d0c01c-1d68-4070-8a8e-dd0a7b8e6805",
+      "name": "Préparer la recherche",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MCP_HTTP_URL || 'http://mcp-server:8000/tools/search_products' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": $json.query,\n  \"marketplace\": $json.marketplace,\n  \"limit\": $json.limit\n}",
+        "options": {}
+      },
+      "id": "14253b3f-0121-498e-9136-cb90e1b48c3c",
+      "name": "Recherche Amazon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MCP_HTTP_URL || 'http://mcp-server:8000/tools/analyse_product' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"asin\": $json.asin || $json.identifier,\n  \"marketplace\": $json.marketplace || 'amazon_us'\n}",
+        "options": {}
+      },
+      "id": "5fca5074-a5d2-446c-a5ac-fbe662abf46d",
+      "name": "Analyse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MCP_HTTP_URL || 'http://mcp-server:8000/tools/score_product' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"asin\": $json.asin || $json.identifier,\n  \"marketplace\": $json.marketplace || 'amazon_us',\n  \"analysis\": $json\n}",
+        "options": {}
+      },
+      "id": "a0ad92cd-d24f-4e36-917e-24869613958f",
+      "name": "Scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTIC_API_URL || 'http://backend:8000/products' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "0197fb7d-0952-4417-88fb-fe22b43a1548",
+      "name": "Base",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow\": \"daily-amazon-research\",\n  \"message\": \"Recherche Amazon quotidienne terminée\",\n  \"payload\": $json\n}",
+        "options": {}
+      },
+      "id": "e29ca1f5-b609-46a7-b8cd-4592ce3888e1",
+      "name": "Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow quotidien": {
+      "main": [
+        [
+          {
+            "node": "Préparer la recherche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer la recherche": {
+      "main": [
+        [
+          {
+            "node": "Recherche Amazon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recherche Amazon": {
+      "main": [
+        [
+          {
+            "node": "Analyse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse": {
+      "main": [
+        [
+          {
+            "node": "Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scoring": {
+      "main": [
+        [
+          {
+            "node": "Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Base": {
+      "main": [
+        [
+          {
+            "node": "Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Etc/UTC"
+  },
+  "versionId": "2c797a5f-1a9f-41a5-b35b-8c4a1e46c774",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "exportable": true
+  },
+  "tags": [
+    {
+      "name": "agentic-ecommerce"
+    },
+    {
+      "name": "amazon-research"
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "name": "Agentic Ecommerce - Recherche fournisseurs produit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "product-validated",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "5d6d91b7-8d02-4705-8663-3ba17706ed58",
+      "name": "Produit validé",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "product-validated"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPPLIER_SEARCH_URL || 'http://backend:8000/suppliers/search' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_identifier\": $json.body.product_identifier || $json.body.asin,\n  \"title\": $json.body.title,\n  \"marketplace\": $json.body.marketplace || 'amazon_us'\n}",
+        "options": {}
+      },
+      "id": "8f4a5cf2-33c7-4f27-bf89-d796122311d1",
+      "name": "Recherche fournisseurs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPPLIER_ANALYSIS_URL || 'http://backend:8000/suppliers/analyse' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": $node['Produit validé'].json.body,\n  \"suppliers\": $json.suppliers || $json\n}",
+        "options": {}
+      },
+      "id": "a48619c0-8a42-4335-9d9c-9b2c4c934b58",
+      "name": "Analyse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPPLIER_SCORE_URL || 'http://backend:8000/suppliers/score' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": $node['Produit validé'].json.body,\n  \"analysis\": $json\n}",
+        "options": {}
+      },
+      "id": "a4eda8a0-1559-4691-8440-cb8387361c42",
+      "name": "Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow\": \"product-supplier-research\",\n  \"message\": \"Recherche fournisseurs terminée\",\n  \"product\": $node['Produit validé'].json.body,\n  \"payload\": $json\n}",
+        "options": {}
+      },
+      "id": "565bc6c3-5d8a-47d8-ad79-738c444e170d",
+      "name": "Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Produit validé": {
+      "main": [
+        [
+          {
+            "node": "Recherche fournisseurs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recherche fournisseurs": {
+      "main": [
+        [
+          {
+            "node": "Analyse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse": {
+      "main": [
+        [
+          {
+            "node": "Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score": {
+      "main": [
+        [
+          {
+            "node": "Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Etc/UTC"
+  },
+  "versionId": "a1fae3a3-9e7f-4618-8c5d-544ec727f997",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "exportable": true
+  },
+  "tags": [
+    {
+      "name": "agentic-ecommerce"
+    },
+    {
+      "name": "supplier-research"
+    }
+  ]
+}
