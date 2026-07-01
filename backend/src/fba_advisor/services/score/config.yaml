@@ -1,0 +1,17 @@
+# Configurable weights for the product opportunity scoring engine.
+# Each score is computed on a 0-100 scale, then combined with these weights.
+weights:
+  concurrence: 0.20
+  marge: 0.25
+  brandabilite: 0.15
+  differenciation: 0.15
+  tendance: 0.15
+  saisonnalite: 0.10
+
+# Normalization references. Tune these values per marketplace/category.
+target_margin_rate: 0.30
+max_competing_offers: 50
+max_review_count: 1000
+max_sales_rank: 100000
+trend_growth_reference: 0.30
+seasonality_volatility_reference: 0.50

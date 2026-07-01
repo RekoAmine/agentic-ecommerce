@@ -184,3 +184,55 @@ def test_openai_service_loads_versioned_prompts_and_routes_tasks(tmp_path: Path)
     assert service.differenciation(" data ").text == "prompt:differentiation"
     assert service.scoring_ia(" data ").text == "prompt:ai_scoring"
     assert connector.calls == [(f"prompt:{prompt_name}", "data") for prompt_name in prompt_names]
+
+
+def test_score_service_scores_product_keepa_and_ai_inputs_with_yaml_config(tmp_path: Path) -> None:
+    from fba_advisor.domain.models import ProductScoringInput
+    from fba_advisor.services.score import ScoreConfig
+
+    config_path = tmp_path / "score.yaml"
+    config_path.write_text(
+        """
+weights:
+  concurrence: 0.10
+  marge: 0.40
+  brandabilite: 0.20
+  differenciation: 0.10
+  tendance: 0.10
+  saisonnalite: 0.10
+target_margin_rate: 0.30
+max_competing_offers: 40
+max_review_count: 1000
+max_sales_rank: 100000
+trend_growth_reference: 0.20
+seasonality_volatility_reference: 0.50
+""".strip(),
+        encoding="utf-8",
+    )
+    product = Product(
+        identifier="B0YAML",
+        title="Premium organizer",
+        source="amazon",
+        price=30,
+        sales_rank=20_000,
+        attributes={"review_count": 100, "offer_count": 4},
+    )
+
+    score = ScoreService(config=ScoreConfig.from_yaml(config_path)).score(
+        ProductScoringInput(
+            product=product,
+            keepa_history={
+                "margin_rate": 0.24,
+                "sales_growth_rate": 0.10,
+                "monthly_sales_cv": 0.10,
+            },
+            ai_analysis={"brandability_score": 0.9, "differentiation_score": 0.7},
+        )
+    )
+
+    assert score.value == 82.0
+    assert score.rationale == "Strong opportunity"
+    assert score.sub_scores is not None
+    assert score.sub_scores.concurrence == 90
+    assert score.sub_scores.marge == 80
+    assert "Pondérations" in score.explanation
