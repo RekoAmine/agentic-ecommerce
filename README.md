@@ -9,6 +9,7 @@ This repository is intentionally designed as a long-lived personal platform, not
 ```text
 backend/        Core backend package and application boundaries
 mcp-server/     Model Context Protocol server package for agent tools
+frontend/       Next.js dashboard that consumes MCP server data only
 database/       PostgreSQL migrations and seed assets
 docker/         Future Docker operational assets
 docs/           Architecture and engineering documentation
@@ -32,6 +33,7 @@ docs/           Architecture and engineering documentation
 - Black
 - Mypy
 - Pytest
+- Next.js / TypeScript / Tailwind / Shadcn UI / TanStack Query for the dashboard
 - pre-commit
 
 ## Quick start
